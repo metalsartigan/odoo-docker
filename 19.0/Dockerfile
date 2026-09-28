@@ -73,8 +73,8 @@ RUN apt-get update && \
 
 # Install Odoo
 ENV ODOO_VERSION=19.0
-ARG ODOO_RELEASE=20260908
-ARG ODOO_SHA=df549a99c8a31a89f54b722e57f9c47224852093
+ARG ODOO_RELEASE=20260926
+ARG ODOO_SHA=cb9d876779edc8d5f0394ddd3936a387e349077c
 RUN curl -o odoo.deb -sSL http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb/odoo_${ODOO_VERSION}.${ODOO_RELEASE}_all.deb \
     && echo "${ODOO_SHA} odoo.deb" | sha1sum -c - \
     && dpkg-deb -R odoo.deb odoo-deb \
