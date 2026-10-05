@@ -11,7 +11,9 @@ set -euo pipefail
 
 ODOO_VERSION=19.0
 IMAGE=ghcr.io/metalsartigan/odoo
+PLATFORM=linux/amd64
 BUILDKIT_IMAGE=moby/buildkit:buildx-stable-1
+BUILDKIT_CONFIG=$(dirname "${BASH_SOURCE[0]}")/buildkitd.toml
 
 usage() {
     echo "Usage: $(basename "$0") build|push" >&2
@@ -39,6 +41,8 @@ cleanup() {
 
 DOCKER_CONFIG=$(mktemp -d)
 export DOCKER_CONFIG
+# Takes precedence over DOCKER_CONFIG for the builder's state.
+export BUILDX_CONFIG="$DOCKER_CONFIG/buildx"
 trap cleanup EXIT
 
 if [[ "$ACTION" == push ]]; then
@@ -46,11 +50,12 @@ if [[ "$ACTION" == push ]]; then
 fi
 
 # A throwaway builder keeps the image, the pulled base image and the build cache off the host.
-BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BUILDKIT_IMAGE")
+BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BUILDKIT_IMAGE" \
+    --buildkitd-config "$BUILDKIT_CONFIG")
 
 # The builder pulls its image into the host's store on first use.
 if ! docker image inspect "$BUILDKIT_IMAGE" &> /dev/null; then
     BUILDKIT_IMAGE_PULLED=1
 fi
 
-docker buildx build --builder "$BUILDER" "${OUTPUT[@]}" -t "${IMAGE}:${ODOO_VERSION}" .
+docker buildx build --builder "$BUILDER" --platform "$PLATFORM" "${OUTPUT[@]}" -t "${IMAGE}:${ODOO_VERSION}" .

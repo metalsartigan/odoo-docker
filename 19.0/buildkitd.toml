@@ -1,0 +1,7 @@
+# Configuration of the throwaway builder created by build.sh, given explicitly so that no
+# buildkitd.default.toml found on the host applies.
+[worker.oci]
+  enabled = true
+
+[worker.containerd]
+  enabled = false
