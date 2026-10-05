@@ -52,18 +52,19 @@ case "$1" in
         ;;
 esac
 
-# A throwaway builder keeps the image, the pulled base image and the build cache off the host.
-BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BUILDKIT_IMAGE")
 # The builder pulls its image into the host's store on first use.
 docker image inspect "$BUILDKIT_IMAGE" &> /dev/null || BUILDKIT_IMAGE_PULLED=1
+# A throwaway builder keeps the image, the pulled base image and the build cache off the host.
+BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BUILDKIT_IMAGE")
 
-# The cache lives outside Docker. It is exported to a fresh directory because BuildKit never
-# removes the layers that a local cache no longer uses.
 # Avoids BuildKit's warning on a missing cache. An empty array adds no argument.
 CACHE_FROM=()
 if [[ -f "$CACHE_DIR/index.json" ]]; then
     CACHE_FROM=(--cache-from type=local,src="$CACHE_DIR")
 fi
+
+# The cache lives outside Docker. It is exported to a fresh directory because BuildKit never
+# removes the layers that a local cache no longer uses.
 docker buildx build --builder "$BUILDER" --platform "$PLATFORM" "${OUTPUT[@]}" \
     "${CACHE_FROM[@]}" --cache-to type=local,dest="$CACHE_DIR.new" \
     -t "${IMAGE}:${ODOO_VERSION}" .
