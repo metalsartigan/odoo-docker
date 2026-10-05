@@ -20,16 +20,8 @@ usage() {
     exit 2
 }
 
-[[ $# -eq 1 ]] || usage
-ACTION=$1
-case "$ACTION" in
-    build) OUTPUT=(--output type=cacheonly) ;;
-    push) OUTPUT=(--push) ;;
-    *) usage ;;
-esac
-
 cleanup() {
-    # The builder's metadata lives in DOCKER_CONFIG, so it must be removed before that directory.
+    # The builder's state lives in DOCKER_CONFIG, so it must be removed before that directory.
     if [[ -n "${BUILDER:-}" ]]; then
         docker buildx rm "$BUILDER" > /dev/null
     fi
@@ -39,23 +31,32 @@ cleanup() {
     rm -rf "$DOCKER_CONFIG"
 }
 
+[[ $# -eq 1 ]] || usage
+
 DOCKER_CONFIG=$(mktemp -d)
 export DOCKER_CONFIG
 # Takes precedence over DOCKER_CONFIG for the builder's state.
 export BUILDX_CONFIG="$DOCKER_CONFIG/buildx"
 trap cleanup EXIT
 
-if [[ "$ACTION" == push ]]; then
-    docker login -u token --password-stdin ghcr.io <<< "$GITHUB_TOKEN" > /dev/null
-fi
+case "$1" in
+    build)
+        OUTPUT=(--output type=cacheonly)
+        ;;
+    push)
+        docker login -u token --password-stdin ghcr.io <<< "$GITHUB_TOKEN" > /dev/null
+        OUTPUT=(--push)
+        ;;
+    *)
+        usage
+        ;;
+esac
 
 # A throwaway builder keeps the image, the pulled base image and the build cache off the host.
 BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BUILDKIT_IMAGE" \
     --buildkitd-config "$BUILDKIT_CONFIG")
-
 # The builder pulls its image into the host's store on first use.
-if ! docker image inspect "$BUILDKIT_IMAGE" &> /dev/null; then
-    BUILDKIT_IMAGE_PULLED=1
-fi
+docker image inspect "$BUILDKIT_IMAGE" &> /dev/null || BUILDKIT_IMAGE_PULLED=1
 
-docker buildx build --builder "$BUILDER" --platform "$PLATFORM" "${OUTPUT[@]}" -t "${IMAGE}:${ODOO_VERSION}" .
+docker buildx build --builder "$BUILDER" --platform "$PLATFORM" "${OUTPUT[@]}" \
+    -t "${IMAGE}:${ODOO_VERSION}" .
