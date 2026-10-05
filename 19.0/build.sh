@@ -13,7 +13,6 @@ ODOO_VERSION=19.0
 IMAGE=ghcr.io/metalsartigan/odoo
 PLATFORM=linux/amd64
 BUILDKIT_IMAGE=moby/buildkit:buildx-stable-1
-BUILDKIT_CONFIG=$(dirname "${BASH_SOURCE[0]}")/buildkitd.toml
 CACHE_DIR=${XDG_CACHE_HOME:-$HOME/.cache}/odoo-docker/$ODOO_VERSION
 
 usage() {
@@ -54,8 +53,7 @@ case "$1" in
 esac
 
 # A throwaway builder keeps the image, the pulled base image and the build cache off the host.
-BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BUILDKIT_IMAGE" \
-    --buildkitd-config "$BUILDKIT_CONFIG")
+BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BUILDKIT_IMAGE")
 # The builder pulls its image into the host's store on first use.
 docker image inspect "$BUILDKIT_IMAGE" &> /dev/null || BUILDKIT_IMAGE_PULLED=1
 
