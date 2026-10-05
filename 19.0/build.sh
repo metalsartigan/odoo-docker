@@ -14,6 +14,7 @@ IMAGE=ghcr.io/metalsartigan/odoo
 PLATFORM=linux/amd64
 BUILDKIT_IMAGE=moby/buildkit:buildx-stable-1
 BUILDKIT_CONFIG=$(dirname "${BASH_SOURCE[0]}")/buildkitd.toml
+CACHE_DIR=${XDG_CACHE_HOME:-$HOME/.cache}/odoo-docker/$ODOO_VERSION
 
 usage() {
     echo "Usage: $(basename "$0") build|push" >&2
@@ -28,7 +29,7 @@ cleanup() {
     if [[ -n "${BUILDKIT_IMAGE_PULLED:-}" ]] && docker image inspect "$BUILDKIT_IMAGE" &> /dev/null; then
         docker image rm "$BUILDKIT_IMAGE" > /dev/null
     fi
-    rm -rf "$DOCKER_CONFIG"
+    rm -rf "$DOCKER_CONFIG" "$CACHE_DIR.new"
 }
 
 [[ $# -eq 1 ]] || usage
@@ -58,5 +59,15 @@ BUILDER=$(docker buildx create --driver docker-container --driver-opt image="$BU
 # The builder pulls its image into the host's store on first use.
 docker image inspect "$BUILDKIT_IMAGE" &> /dev/null || BUILDKIT_IMAGE_PULLED=1
 
+# The cache lives outside Docker. It is exported to a fresh directory because BuildKit never
+# removes the layers that a local cache no longer uses.
+# Avoids BuildKit's warning on a missing cache. An empty array adds no argument.
+CACHE_FROM=()
+if [[ -f "$CACHE_DIR/index.json" ]]; then
+    CACHE_FROM=(--cache-from type=local,src="$CACHE_DIR")
+fi
 docker buildx build --builder "$BUILDER" --platform "$PLATFORM" "${OUTPUT[@]}" \
+    "${CACHE_FROM[@]}" --cache-to type=local,dest="$CACHE_DIR.new" \
     -t "${IMAGE}:${ODOO_VERSION}" .
+rm -rf "$CACHE_DIR"
+mv "$CACHE_DIR.new" "$CACHE_DIR"
