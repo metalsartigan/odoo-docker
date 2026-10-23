@@ -1,3 +1,4 @@
+# Fork: upstream uses ubuntu:noble, we run on ubuntu 26.04
 FROM ubuntu:26.04
 LABEL maintainer="Odoo S.A. <info@odoo.com>"
 
@@ -77,6 +78,7 @@ ARG ODOO_RELEASE=20260926
 ARG ODOO_SHA=cb9d876779edc8d5f0394ddd3936a387e349077c
 RUN curl -o odoo.deb -sSL http://nightly.odoo.com/${ODOO_VERSION}/nightly/deb/odoo_${ODOO_VERSION}.${ODOO_RELEASE}_all.deb \
     && echo "${ODOO_SHA} odoo.deb" | sha1sum -c - \
+    # Fork: ubuntu 26.04 no longer ships python3-pypdf2, so the package dependency is repointed to python3-pypdf
     && dpkg-deb -R odoo.deb odoo-deb \
     && sed -i -E 's/\bpython3-pypdf2\b/python3-pypdf/' odoo-deb/DEBIAN/control \
     && dpkg-deb -b odoo-deb odoo.deb \
@@ -93,7 +95,8 @@ COPY ./odoo.conf /etc/odoo/
 RUN chown odoo /etc/odoo/odoo.conf \
     && mkdir -p /mnt/extra-addons \
     && chown -R odoo /mnt/extra-addons
-VOLUME ["/var/lib/odoo", "/mnt/extra-addons"]
+# Fork: /mnt/extra-addons is not declared as a volume, unlike upstream
+VOLUME ["/var/lib/odoo"]
 
 # Expose Odoo services
 EXPOSE 8069 8071 8072
